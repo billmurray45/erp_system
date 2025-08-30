@@ -7,9 +7,9 @@ services:
     container_name: erp_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-erp_database}
+      POSTGRES_USER: ${DB_USER:-erp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-erp_password}
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432"
@@ -18,7 +18,7 @@ services:
     networks:
       - erp-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-erp_user} -d ${DB_NAME:-erp_database}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -34,13 +34,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=${DEBUG}
-      - CORE_SECRET_KEY=${CORE_SECRET_KEY}
+      - DEBUG=${DEBUG:-True}
+      - CORE_SECRET_KEY=${CORE_SECRET_KEY:-your-secret-key-here}
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-erp_database}
+      - DB_USER=${DB_USER:-erp_user}
+      - DB_PASSWORD=${DB_PASSWORD:-erp_password}
+      - ALLOWED_HOSTS=localhost,127.0.0.1,core-service,0.0.0.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,14 +68,15 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - DEBUG=${DEBUG}
-      - USER_SECRET_KEY=${USER_SECRET_KEY}
+      - DEBUG=${DEBUG:-True}
+      - USER_SECRET_KEY=${USER_SECRET_KEY:-your-user-secret-key}
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-erp_database}
+      - DB_USER=${DB_USER:-erp_user}
+      - DB_PASSWORD=${DB_PASSWORD:-erp_password}
       - CORE_SERVICE_URL=http://core-service:8000
+      - ALLOWED_HOSTS=localhost,127.0.0.1,user-service,0.0.0.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,14 +105,15 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - DEBUG=${DEBUG}
-      - PRODUCT_SECRET_KEY=${PRODUCT_SECRET_KEY}
+      - DEBUG=${DEBUG:-True}
+      - PRODUCT_SECRET_KEY=${PRODUCT_SECRET_KEY:-your-product-secret-key}
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-erp_database}
+      - DB_USER=${DB_USER:-erp_user}
+      - DB_PASSWORD=${DB_PASSWORD:-erp_password}
       - CORE_SERVICE_URL=http://core-service:8000
+      - ALLOWED_HOSTS=localhost,127.0.0.1,product-service,0.0.0.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,7 +131,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 45s
-
 
 volumes:
   postgres_data:
