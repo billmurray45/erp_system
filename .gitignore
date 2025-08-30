@@ -1,0 +1,6 @@
+.env
+.idea
+venv_core
+venv_products
+venv_users
+__pycache__
