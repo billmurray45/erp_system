@@ -1,46 +1,151 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: erp_postgres
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: erp_system
-      POSTGRES_USER: erp_admin
-      POSTGRES_PASSWORD: Bauka2745
-
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-    command: >
-      postgres
-      -c shared_preload_libraries=pg_stat_statements
-      -c pg_stat_statements.track=all
-      -c max_connections=200
-      -c shared_buffers=128MB
-      -c effective_cache_size=512MB
-      -c maintenance_work_mem=64MB
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=16MB
-      -c default_statistics_target=100
-
+    networks:
+      - erp-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U erp_admin -d erp_system"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Core Service
+  core-service:
+    build:
+      context: ./main_app
+      dockerfile: Dockerfile
+    container_name: erp_core_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=${DEBUG}
+      - CORE_SECRET_KEY=${CORE_SECRET_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./main_app:/app
+      - core_static:/app/static
+      - core_media:/app/media
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/schemas/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 45s
+
+  # User Service
+  user-service:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    container_name: erp_user_service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=${DEBUG}
+      - USER_SECRET_KEY=${USER_SECRET_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CORE_SERVICE_URL=http://core-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    volumes:
+      - ./user_service:/app
+      - user_static:/app/static
+      - user_media:/app/media
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/users/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Product Service
+  product-service:
+    build:
+      context: ./product_service
+      dockerfile: Dockerfile
+    container_name: erp_product_service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      - DEBUG=${DEBUG}
+      - PRODUCT_SECRET_KEY=${PRODUCT_SECRET_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CORE_SERVICE_URL=http://core-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    volumes:
+      - ./product_service:/app
+      - product_static:/app/static
+      - product_media:/app/media
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/products/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
 
 volumes:
   postgres_data:
     driver: local
+  core_static:
+    driver: local
+  core_media:
+    driver: local
+  user_static:
+    driver: local
+  user_media:
+    driver: local
+  product_static:
+    driver: local
+  product_media:
+    driver: local
 
 networks:
-  default:
-    name: erp-network
+  erp-network:
     driver: bridge

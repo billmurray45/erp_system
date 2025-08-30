@@ -6,3 +6,4 @@ python-decouple==3.8
 drf-yasg==1.21.10
 requests==2.31.0
 Pillow==10.1.0
+django-filter==25.1
